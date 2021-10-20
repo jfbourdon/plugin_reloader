@@ -62,6 +62,14 @@ def setNotificationsEnabled(enabled):
     settings = QSettings()
     return settings.setValue('/PluginReloader/notify', enabled)
 
+def extraCommandsEnabled():
+    settings = QSettings()
+    return settings.value('/PluginReloader/extraCommandsEnabled', True, type=bool)
+
+def setExtraCommandsEnabled(enabled):
+    settings = QSettings()
+    return settings.setValue('/PluginReloader/extraCommandsEnabled', enabled)
+
 def setExtraCommands(commands):
     settings = QSettings()
     return settings.setValue('/PluginReloader/extraCommands', commands)
@@ -69,28 +77,27 @@ def setExtraCommands(commands):
 def handleExtraCommands(message_bar, translator):
     extra_commands = getExtraCommands()
     successExtraCommands = True
-    if extra_commands != "":
-        try:
-            if replacePluginNameEnabled():
-                extra_commands = extra_commands.replace('%PluginName%', currentPlugin())
-            
-            completed_process = subprocess.run(
-                extra_commands,
-                shell=True,
-                capture_output=True,
-                check=True,
-            )
+    try:
+        if replacePluginNameEnabled():
+            extra_commands = extra_commands.replace('%PluginName%', currentPlugin())
+        
+        completed_process = subprocess.run(
+            extra_commands,
+            shell=True,
+            capture_output=True,
+            check=True,
+        )
 
-            message_bar.pushMessage(
-                completed_process.stdout.decode('utf-8', 'replace'),
-                Qgis.Info
-            )
-        except subprocess.CalledProcessError as exc:
-            message_bar.pushMessage(
-                translator('Could not execute extra commands: {}').format(exc.stderr.decode('utf-8', 'replace')),
-                Qgis.Warning
-            )
-            successExtraCommands = False
+        message_bar.pushMessage(
+            completed_process.stdout.decode('utf-8', 'replace'),
+            Qgis.Info
+        )
+    except subprocess.CalledProcessError as exc:
+        message_bar.pushMessage(
+            translator('Could not execute extra commands: {}').format(exc.stderr.decode('utf-8', 'replace')),
+            Qgis.Warning
+        )
+        successExtraCommands = False
     return successExtraCommands
 
 class ConfigureReloaderDialog (QDialog, Ui_ConfigureReloaderDialogBase):
@@ -100,6 +107,7 @@ class ConfigureReloaderDialog (QDialog, Ui_ConfigureReloaderDialogBase):
     self.setupUi(self)
     self.cbReplacePluginName.setChecked(replacePluginNameEnabled())
     self.cbNotifications.setChecked(notificationsEnabled())
+    self.cbExtraCommands.setChecked(extraCommandsEnabled())
     self.pteExtraCommands.setPlainText(getExtraCommands())
 
     #update the plugin list first! The plugin could be removed from the list if was temporarily broken.
@@ -255,7 +263,11 @@ class ReloaderPlugin():
             sys.modules[key].qCleanupResources()
           del sys.modules[key]
 
-      successExtraCommands = handleExtraCommands(self.iface.messageBar(), self.tr)
+      if extraCommandsEnabled():
+        successExtraCommands = handleExtraCommands(self.iface.messageBar(), self.tr)
+      else:
+        successExtraCommands = True
+      
       if successExtraCommands:
         reloadPlugin(plugin)
         self.iface.mainWindow().restoreState(state)
@@ -273,4 +285,5 @@ class ReloaderPlugin():
       setCurrentPlugin(plugin)
       setReplacePluginNameEnabled(dlg.cbReplacePluginName.isChecked())
       setNotificationsEnabled(dlg.cbNotifications.isChecked())
+      setExtraCommandsEnabled(dlg.cbExtraCommands.isChecked())
       setExtraCommands(dlg.pteExtraCommands.toPlainText())
