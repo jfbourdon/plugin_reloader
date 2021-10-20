@@ -58,6 +58,7 @@ def setExtraCommands(commands):
 
 def handleExtraCommands(message_bar, translator):
     extra_commands = getExtraCommands()
+    successExtraCommands = True
     if extra_commands != "":
         try:
             completed_process = subprocess.run(
@@ -65,14 +66,19 @@ def handleExtraCommands(message_bar, translator):
                 shell=True,
                 capture_output=True,
                 check=True,
-                text=True,
             )
-            message_bar.pushMessage(completed_process.stdout, Qgis.Info)
+
+            message_bar.pushMessage(
+                completed_process.stdout.decode('utf-8', 'replace'),
+                Qgis.Info
+            )
         except subprocess.CalledProcessError as exc:
             message_bar.pushMessage(
-                translator('Could not execute extra commands: {}').format(exc.stderr),
+                translator('Could not execute extra commands: {}').format(exc.stderr.decode('utf-8', 'replace')),
                 Qgis.Warning
             )
+            successExtraCommands = False
+    return successExtraCommands
 
 class ConfigureReloaderDialog (QDialog, Ui_ConfigureReloaderDialogBase):
   def __init__(self, parent):
@@ -235,11 +241,12 @@ class ReloaderPlugin():
             sys.modules[key].qCleanupResources()
           del sys.modules[key]
 
-      handleExtraCommands(self.iface.messageBar(), self.tr)
-      reloadPlugin(plugin)
-      self.iface.mainWindow().restoreState(state)
-      if notificationsEnabled():
-        self.iface.messageBar().pushMessage(self.tr('<b>{}</b> reloaded.').format(plugin), Qgis.Success)
+      successExtraCommands = handleExtraCommands(self.iface.messageBar(), self.tr)
+      if successExtraCommands:
+        reloadPlugin(plugin)
+        self.iface.mainWindow().restoreState(state)
+        if notificationsEnabled():
+          self.iface.messageBar().pushMessage(self.tr('<b>{}</b> reloaded.').format(plugin), Qgis.Success)
 
   def configure(self):
     dlg = ConfigureReloaderDialog(self.iface)
