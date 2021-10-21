@@ -23,7 +23,7 @@ from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtWidgets import *
 from qgis.PyQt import uic
 from qgis.core import Qgis
-from qgis.utils import plugins, reloadPlugin, updateAvailablePlugins, loadPlugin, startPlugin
+from qgis.utils import plugins, reloadPlugin, updateAvailablePlugins, loadPlugin, startPlugin, unloadPlugin
 from pyplugin_installer import installer as plugin_installer
 
 Ui_ConfigureReloaderDialogBase = uic.loadUiType(os.path.join(os.path.dirname(__file__), 'configurereloaderbase.ui'))[0]
@@ -237,22 +237,23 @@ class ReloaderPlugin():
 
   def run(self):
     plugin = currentPlugin()
+
     #update the plugin list first! The plugin could be removed from the list if was temporarily broken.
     updateAvailablePlugins()
+
     #try to load from scratch the plugin saved in QSettings if not loaded
     if plugin not in plugins and plugin != "":
-      try:
-        loadPlugin(plugin)
-        startPlugin(plugin)
-      except:
-        pass
-    updateAvailablePlugins()
+      loadPlugin(plugin)
+      startPlugin(plugin)
+      updateAvailablePlugins()
+
     #give one chance for correct (not a loop)
     if plugin not in plugins:
       self.iface.messageBar().pushMessage(self.tr('Plugin <b>{}</b> not found.').format(plugin), Qgis.Warning, 0)
       self.configure()
       self.iface.messageBar().currentItem().dismiss()
       plugin = currentPlugin()
+    
     if plugin in plugins:
       state = self.iface.mainWindow().saveState()
 
@@ -269,9 +270,12 @@ class ReloaderPlugin():
         successExtraCommands = True
       
       if successExtraCommands:
-        reloadPlugin(plugin)
+        unloadPlugin(plugin)
+        loaded = loadPlugin(plugin)
+        started = startPlugin(plugin)
+
         self.iface.mainWindow().restoreState(state)
-        if notificationsEnabled():
+        if notificationsEnabled() and loaded and started:
           self.iface.messageBar().pushMessage(self.tr('<b>{}</b> reloaded.').format(plugin), Qgis.Success)
 
   def configure(self):
