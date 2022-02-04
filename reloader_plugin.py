@@ -112,17 +112,41 @@ class ConfigureReloaderDialog (QDialog, Ui_ConfigureReloaderDialogBase):
       #except:
         #pass
     #updateAvailablePlugins()
+ 
 
-    plugins_list = sorted(plugins.keys())
+    dict_plugins = plugin_installer.plugins.all()
+
+    ls_all_plugins = list(dict_plugins.keys())
+    ls_available = list(plugins.keys())  # Only non broken plugins and user activated plugins
+    ls_broken = [plugin for plugin in dict_plugins.keys() if dict_plugins[plugin]['error'] != '']
+    # ls_broken_inactive = list(set(ls_all_plugins) - set(ls_available))
+
+    print(ls_all_plugins)
+    print("========")
+    print(ls_available)
+    print("========")
+    print(ls_broken)
+    print("========")
+
+    # Ajouter à plugins_list les plugins brisés et les mettre en rouge?
+
+    combo = self.comboPlugin
+    model = combo.model()
+    plugins_list = sorted(ls_available)
     for plugin in plugins_list:
       try:
-        icon = QIcon(plugin_installer.plugins.all()[plugin]['icon'])
+        icon = QIcon(dict_plugins[plugin]['icon'])
       except KeyError:
         icon = QIcon()
-      self.comboPlugin.addItem(icon, plugin)
+
+      #https://stackoverflow.com/questions/22887496/pyqt-how-to-customize-qcombobox-item-appearance
+      item = QStandardItem(icon, plugin)
+      item.setForeground(QColor('red'))
+      model.appendRow(item)
+      #combo.addItem(icon, plugin)
     plugin = currentPlugin()
     if plugin in plugins:
-      self.comboPlugin.setCurrentIndex(plugins_list.index(plugin))
+      combo.setCurrentIndex(plugins_list.index(plugin))
 
 
 class ReloaderPlugin():
